@@ -12,6 +12,7 @@ c = conn.cursor()
 c.execute("""
 CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pakrovimo_numeris TEXT UNIQUE,
     pakrovimo_data_laikas TEXT,
     iskrovimo_data_laikas TEXT,
     pakrovimo_miestas TEXT,
@@ -24,8 +25,14 @@ conn.commit()
 
 st.title("DISPO – Krovinių valdymas")
 
-# Įvedimo forma
-with st.form("krovinio_forma"):
+# Sesijos būsena dublikato patvirtinimui
+if 'leidimas_irasyti' not in st.session_state:
+    st.session_state['leidimas_irasyti'] = False
+if 'laikinas_krovinys' not in st.session_state:
+    st.session_state['laikinas_krovinys'] = None
+
+with st.form("krovinio_forma", clear_on_submit=False):
+    pakrovimo_numeris = st.text_input("Pakrovimo numeris", max_chars=20)
     pakrovimo_data = st.date_input("Pakrovimo data", value=date.today())
     pakrovimo_laikas = st.time_input("Pakrovimo laikas", value=datetime.now().time())
     iskrovimo_data = st.date_input("Iškrovimo data", value=date.today())
@@ -36,13 +43,36 @@ with st.form("krovinio_forma"):
     frachtas = st.number_input("Frachtas (€)", min_value=0.0, format="%.2f")
     submit = st.form_submit_button("Įrašyti krovinį")
 
+# Apdorojimas
 if submit:
     pakrovimo_data_laikas = f"{pakrovimo_data} {pakrovimo_laikas}"
     iskrovimo_data_laikas = f"{iskrovimo_data} {iskrovimo_laikas}"
-    c.execute("INSERT INTO kroviniai (pakrovimo_data_laikas, iskrovimo_data_laikas, pakrovimo_miestas, iskrovimo_miestas, kilometrai, frachtas) VALUES (?, ?, ?, ?, ?, ?)",
-              (pakrovimo_data_laikas, iskrovimo_data_laikas, pakrovimo_miestas, iskrovimo_miestas, kilometrai, frachtas))
-    conn.commit()
-    st.success("Krovinys įrašytas!")
+
+    # Tikrinam ar toks pakrovimo numeris jau egzistuoja
+    c.execute("SELECT * FROM kroviniai WHERE pakrovimo_numeris = ?", (pakrovimo_numeris,))
+    egzistuoja = c.fetchone()
+
+    if egzistuoja and not st.session_state['leidimas_irasyti']:
+        st.warning("Toks krovinys jau įvestas. Ar tikrai norite įrašyti dar kartą?")
+        if st.button("Taip, įrašyti vistiek"):
+            st.session_state['leidimas_irasyti'] = True
+            st.rerun()
+        elif st.button("Ne, atšaukti"):
+            st.session_state['leidimas_irasyti'] = False
+            st.success("Įrašymas atšauktas.")
+    else:
+        try:
+            c.execute("""
+                INSERT INTO kroviniai (pakrovimo_numeris, pakrovimo_data_laikas, iskrovimo_data_laikas,
+                                       pakrovimo_miestas, iskrovimo_miestas, kilometrai, frachtas)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (pakrovimo_numeris, pakrovimo_data_laikas, iskrovimo_data_laikas,
+                  pakrovimo_miestas, iskrovimo_miestas, kilometrai, frachtas))
+            conn.commit()
+            st.success("Krovinys įrašytas!")
+            st.session_state['leidimas_irasyti'] = False
+        except sqlite3.IntegrityError:
+            st.error("Toks pakrovimo numeris jau egzistuoja ir įrašymas nebuvo patvirtintas.")
 
 # Lentelės peržiūra
 st.subheader("Krovinių sąrašas")
