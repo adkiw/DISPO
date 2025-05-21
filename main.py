@@ -1,3 +1,4 @@
+
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -15,7 +16,7 @@ if "pakrovimo_numeris" not in columns:
         c.execute("ALTER TABLE kroviniai ADD COLUMN pakrovimo_numeris TEXT UNIQUE")
         conn.commit()
     except sqlite3.OperationalError:
-        pass  # Jei klaida, tiesiog praleidžiam (gal stulpelis buvo pradėtas kurti anksčiau)
+        pass
 
 # Sukuriam lentelę jei dar nėra
 c.execute("""
