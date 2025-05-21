@@ -1,4 +1,3 @@
-
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -8,11 +7,20 @@ from datetime import datetime, date
 conn = sqlite3.connect('dispo.db', check_same_thread=False)
 c = conn.cursor()
 
+# Patikrinam, ar lentelėje yra stulpelis pakrovimo_numeris, jei ne – pridedam
+c.execute("PRAGMA table_info(kroviniai)")
+columns = [col[1] for col in c.fetchall()]
+if "pakrovimo_numeris" not in columns:
+    try:
+        c.execute("ALTER TABLE kroviniai ADD COLUMN pakrovimo_numeris TEXT UNIQUE")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Jei klaida, tiesiog praleidžiam (gal stulpelis buvo pradėtas kurti anksčiau)
+
 # Sukuriam lentelę jei dar nėra
 c.execute("""
 CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pakrovimo_numeris TEXT UNIQUE,
     pakrovimo_data_laikas TEXT,
     iskrovimo_data_laikas TEXT,
     pakrovimo_miestas TEXT,
@@ -28,8 +36,6 @@ st.title("DISPO – Krovinių valdymas")
 # Sesijos būsena dublikato patvirtinimui
 if 'leidimas_irasyti' not in st.session_state:
     st.session_state['leidimas_irasyti'] = False
-if 'laikinas_krovinys' not in st.session_state:
-    st.session_state['laikinas_krovinys'] = None
 
 with st.form("krovinio_forma", clear_on_submit=False):
     pakrovimo_numeris = st.text_input("Pakrovimo numeris", max_chars=20)
