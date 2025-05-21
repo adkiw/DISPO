@@ -8,17 +8,7 @@ from datetime import datetime, date
 conn = sqlite3.connect('dispo.db', check_same_thread=False)
 c = conn.cursor()
 
-# Patikrinam, ar lentelėje yra stulpelis pakrovimo_numeris, jei ne – pridedam
-c.execute("PRAGMA table_info(kroviniai)")
-columns = [col[1] for col in c.fetchall()]
-if "pakrovimo_numeris" not in columns:
-    try:
-        c.execute("ALTER TABLE kroviniai ADD COLUMN pakrovimo_numeris TEXT UNIQUE")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-
-# Sukuriam lentelę jei dar nėra
+# 1. Pirma sukurti lentelę, jei dar nėra
 c.execute("""
 CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,6 +21,16 @@ CREATE TABLE IF NOT EXISTS kroviniai (
 )
 """)
 conn.commit()
+
+# 2. Tik tada tikrinti, ar yra papildomas stulpelis
+c.execute("PRAGMA table_info(kroviniai)")
+columns = [col[1] for col in c.fetchall()]
+if "pakrovimo_numeris" not in columns:
+    try:
+        c.execute("ALTER TABLE kroviniai ADD COLUMN pakrovimo_numeris TEXT UNIQUE")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
 
 st.title("DISPO – Krovinių valdymas")
 
