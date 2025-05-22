@@ -40,9 +40,9 @@ today = date.today()
 dienos_pasirinkimui = [today + timedelta(days=i) for i in range(5)]
 
 # Sesijos paruošimas
-if 'leidimas_irasyti' not in st.session_state:
-    st.session_state['leidimas_irasyti'] = False
-    st.session_state['laikinai_irasyti_duomenys'] = {}
+for key in ['leidimas_irasyti', 'laikinai_irasyti_duomenys', 'priverstinai_irasyti']:
+    if key not in st.session_state:
+        st.session_state[key] = False if key != 'laikinai_irasyti_duomenys' else {}
 
 def form_input():
     with st.form("forma", clear_on_submit=False):
@@ -82,28 +82,24 @@ def form_input():
 
 submit, data = form_input()
 
-if submit or st.session_state['leidimas_irasyti']:
-    pakrovimo_numeris = data['pakrovimo_numeris']
-    pakrovimo_data = data['pakrovimo_data']
-    iskrovimo_data = data['iskrovimo_data']
-
-    if pakrovimo_data > iskrovimo_data:
+if submit or st.session_state['priverstinai_irasyti']:
+    d = st.session_state['laikinai_irasyti_duomenys'] if st.session_state['priverstinai_irasyti'] else data
+    if d['pakrovimo_data'] > d['iskrovimo_data']:
         st.error("Pakrovimo data negali būti vėlesnė nei iškrovimo!")
     else:
-        c.execute("SELECT COUNT(*) FROM kroviniai WHERE pakrovimo_numeris = ?", (pakrovimo_numeris,))
+        c.execute("SELECT COUNT(*) FROM kroviniai WHERE pakrovimo_numeris = ?", (d['pakrovimo_numeris'],))
         count = c.fetchone()[0]
 
-        if count > 0 and not st.session_state['leidimas_irasyti']:
+        if count > 0 and not st.session_state['priverstinai_irasyti']:
             st.warning("Toks pakrovimo numeris jau yra. Ar tikrai norite įrašyti dar kartą?")
             st.session_state['laikinai_irasyti_duomenys'] = data
             if st.button("Taip, įrašyti vistiek"):
-                st.session_state['leidimas_irasyti'] = True
+                st.session_state['priverstinai_irasyti'] = True
                 st.rerun()
             elif st.button("Ne, atšaukti"):
                 st.success("Įrašymas atšauktas.")
         else:
-            d = st.session_state['laikinai_irasyti_duomenys'] if st.session_state['leidimas_irasyti'] else data
-            c.execute("INSERT INTO kroviniai (pakrovimo_numeris, pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki, iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki, pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas, vilkikas, priekaba, atsakingas_vadybininkas, kilometrai, frachtas, svoris, busena) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+            c.execute("INSERT INTO kroviniai (...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
                 d['pakrovimo_numeris'], str(d['pakrovimo_data']), str(d['pakrovimo_laikas_nuo']), str(d['pakrovimo_laikas_iki']),
                 str(d['iskrovimo_data']), str(d['iskrovimo_laikas_nuo']), str(d['iskrovimo_laikas_iki']),
                 d['pakrovimo_salis'], d['pakrovimo_miestas'], d['iskrovimo_salis'], d['iskrovimo_miestas'],
@@ -113,7 +109,7 @@ if submit or st.session_state['leidimas_irasyti']:
             ))
             conn.commit()
             st.success("Krovinys įrašytas!")
-            st.session_state['leidimas_irasyti'] = False
+            st.session_state['priverstinai_irasyti'] = False
             st.session_state['laikinai_irasyti_duomenys'] = {}
 
 # Rodymas
