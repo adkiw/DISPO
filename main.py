@@ -99,7 +99,15 @@ if submit or st.session_state['priverstinai_irasyti']:
             elif st.button("Ne, atšaukti"):
                 st.success("Įrašymas atšauktas.")
         else:
-            c.execute("INSERT INTO kroviniai (...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+            c.execute("""
+INSERT INTO kroviniai (
+    pakrovimo_numeris, pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki,
+    iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki,
+    pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
+    vilkikas, priekaba, atsakingas_vadybininkas,
+    kilometrai, frachtas, svoris, busena
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
                 d['pakrovimo_numeris'], str(d['pakrovimo_data']), str(d['pakrovimo_laikas_nuo']), str(d['pakrovimo_laikas_iki']),
                 str(d['iskrovimo_data']), str(d['iskrovimo_laikas_nuo']), str(d['iskrovimo_laikas_iki']),
                 d['pakrovimo_salis'], d['pakrovimo_miestas'], d['iskrovimo_salis'], d['iskrovimo_miestas'],
