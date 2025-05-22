@@ -8,7 +8,7 @@ from datetime import datetime, date
 conn = sqlite3.connect('dispo.db', check_same_thread=False)
 c = conn.cursor()
 
-# Lentelė
+# Lentelės struktūra
 c.execute("""
 CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,9 +68,9 @@ if submit:
     if pakrovimo_data_laikas > iskrovimo_data_laikas:
         st.error("Pakrovimo data ir laikas negali būti vėlesni nei iškrovimo. Patikrink datas!")
     else:
-        # Sufikso logika
+        # Automatinis skaitmeninis sufiksas: -1, -2, -3...
         pakrovimo_numeris = pakrovimo_numeris_original
-        suffix = ord('a')
+        suffix = 1
         while True:
             try:
                 c.execute("""
@@ -90,9 +90,9 @@ if submit:
                 st.success(f"Krovinys įrašytas kaip: {pakrovimo_numeris}")
                 break
             except sqlite3.IntegrityError:
-                pakrovimo_numeris = f"{pakrovimo_numeris_original}{chr(suffix)}"
+                pakrovimo_numeris = f"{pakrovimo_numeris_original}-{suffix}"
                 suffix += 1
-                if suffix > ord('z'):
+                if suffix > 99:
                     st.error("Pasiekta maksimali pakartojimų riba šiam numeriui.")
                     break
 
