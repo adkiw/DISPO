@@ -4,11 +4,11 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, date
 
-# Prisijungimas prie SQLite bazės
+# Prisijungimas prie SQLite
 conn = sqlite3.connect('dispo.db', check_same_thread=False)
 c = conn.cursor()
 
-# Lentelės struktūra
+# Lentelė
 c.execute("""
 CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,11 +34,8 @@ st.title("DISPO – Krovinių valdymas")
 
 busenos = ["suplanuotas", "nesuplanuotas", "pakrautas", "iškrautas"]
 
-if 'leidimas_irasyti' not in st.session_state:
-    st.session_state['leidimas_irasyti'] = False
-
 with st.form("krovinio_forma", clear_on_submit=False):
-    pakrovimo_numeris = st.text_input("Pakrovimo numeris", max_chars=20)
+    pakrovimo_numeris_original = st.text_input("Pakrovimo numeris", max_chars=20)
 
     pakrovimo_data = st.date_input("Pakrovimo data", value=date.today())
     pakrovimo_val = st.time_input("Pakrovimo laikas")
@@ -65,25 +62,16 @@ if submit:
     pakrovimo_data_laikas = datetime.combine(pakrovimo_data, pakrovimo_val)
     iskrovimo_data_laikas = datetime.combine(iskrovimo_data, iskrovimo_val)
 
-    # Formatuojam iki minučių
     pakrovimo_data_laikas_str = pakrovimo_data_laikas.strftime("%Y-%m-%d %H:%M")
     iskrovimo_data_laikas_str = iskrovimo_data_laikas.strftime("%Y-%m-%d %H:%M")
 
     if pakrovimo_data_laikas > iskrovimo_data_laikas:
         st.error("Pakrovimo data ir laikas negali būti vėlesni nei iškrovimo. Patikrink datas!")
     else:
-        c.execute("SELECT * FROM kroviniai WHERE pakrovimo_numeris = ?", (pakrovimo_numeris,))
-        egzistuoja = c.fetchone()
-
-        if egzistuoja and not st.session_state['leidimas_irasyti']:
-            st.warning("Toks krovinys jau įvestas. Ar tikrai norite įrašyti dar kartą?")
-            if st.button("Taip, įrašyti vistiek"):
-                st.session_state['leidimas_irasyti'] = True
-                st.rerun()
-            elif st.button("Ne, atšaukti"):
-                st.session_state['leidimas_irasyti'] = False
-                st.success("Įrašymas atšauktas.")
-        else:
+        # Sufikso logika
+        pakrovimo_numeris = pakrovimo_numeris_original
+        suffix = ord('a')
+        while True:
             try:
                 c.execute("""
                     INSERT INTO kroviniai (
@@ -99,12 +87,16 @@ if submit:
                     kilometrai, frachtas, svoris, busena
                 ))
                 conn.commit()
-                st.success("Krovinys įrašytas!")
-                st.session_state['leidimas_irasyti'] = False
+                st.success(f"Krovinys įrašytas kaip: {pakrovimo_numeris}")
+                break
             except sqlite3.IntegrityError:
-                st.error("Toks pakrovimo numeris jau egzistuoja ir įrašymas nebuvo patvirtintas.")
+                pakrovimo_numeris = f"{pakrovimo_numeris_original}{chr(suffix)}"
+                suffix += 1
+                if suffix > ord('z'):
+                    st.error("Pasiekta maksimali pakartojimų riba šiam numeriui.")
+                    break
 
-# Lentelės peržiūra
+# Peržiūra
 st.subheader("Krovinių sąrašas")
 df = pd.read_sql_query("SELECT * FROM kroviniai", conn)
 st.dataframe(df)
