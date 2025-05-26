@@ -13,6 +13,16 @@ modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai"
 # Vilkikai
 c.execute("""
 CREATE TABLE IF NOT EXISTS vilkikai (
+
+# Patikrinam ar vilkikai lentelėje yra stulpeliai priekaba ir vadybininkas
+try:
+    c.execute("ALTER TABLE vilkikai ADD COLUMN priekaba TEXT")
+except:
+    pass
+try:
+    c.execute("ALTER TABLE vilkikai ADD COLUMN vadybininkas TEXT")
+except:
+    pass
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numeris TEXT UNIQUE,
     marke TEXT,
