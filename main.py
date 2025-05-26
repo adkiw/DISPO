@@ -71,6 +71,18 @@ conn.commit()
 # Meniu pasirinkimas
 modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai", "Darbuotojai", "Priekabos"])
 
-# … (visas likęs kodas lieka nepakeistas)
-# Nuo “if modulis == 'Kroviniai':” toliau, iki galo
-# Nereikia keisti likusios logikos, nes struktūra teisinga
+if modulis == "Kroviniai":
+    st.title("DISPO – Krovinių valdymas")
+    # ... (visas tavo ankstesnis kroviniai modulis čia)
+
+elif modulis == "Vilkikai":
+    st.title("DISPO – Vilkikų valdymas")
+    # ... (visa vilkikai modulio logika čia)
+
+elif modulis == "Darbuotojai":
+    st.title("DISPO – Darbuotojų valdymas")
+    # ... (visa darbuotojai modulio logika čia)
+
+elif modulis == "Priekabos":
+    st.title("DISPO – Priekabų valdymas")
+    # ... (visa priekabos modulio logika čia)
