@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, date, time, timedelta
 
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
+c = conn.cursor()
 
 # Meniu pasirinkimas
 modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai"])
