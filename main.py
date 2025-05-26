@@ -1,3 +1,4 @@
+
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -103,7 +104,7 @@ if submit:
             pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
             vilkikas, priekaba, atsakingas_vadybininkas,
             kilometrai, frachtas, svoris, paleciu_skaicius, busena
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
             klientas, uzsakymo_numeris, pakrovimo_numeris,
             str(pakrovimo_data), str(pakrovimo_laikas_nuo), str(pakrovimo_laikas_iki),
             str(iskrovimo_data), str(iskrovimo_laikas_nuo), str(iskrovimo_laikas_iki),
