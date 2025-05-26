@@ -87,44 +87,42 @@ with st.form("forma", clear_on_submit=False):
 
 if submit:
     if pakrovimo_data > iskrovimo_data:
+        st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
     elif not klientas or not uzsakymo_numeris:
         st.error("❌ Privaloma užpildyti 'Klientas' ir 'Užsakymo numeris' laukus.")
     else:
         st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
-    else:
+        else:
         try:
-            kilometrai = int(kilometrai_raw)
-            frachtas = float(frachtas_raw)
-            svoris = int(svoris_raw)
-            paleciu_skaicius = int(paleciu_raw)
+        kilometrai = int(kilometrai_raw)
+        frachtas = float(frachtas_raw)
+        svoris = int(svoris_raw)
+        paleciu_skaicius = int(paleciu_raw)
 
-            # Perspėjimas dėl uzsakymo numerio dublio
-            c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
-            if c.fetchone()[0] > 0:
-            # Pridėti požymį prie užsakymo numerio
-            base_id = c.execute("SELECT id FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,)).fetchone()[0]
-            uzsakymo_numeris += f"-{base_id}"
-                st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
+        # Perspėjimas dėl uzsakymo numerio dublio
+        c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
+        if c.fetchone()[0] > 0:
+        st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
 
-            c.execute("""INSERT INTO kroviniai (
-                klientas, uzsakymo_numeris, pakrovimo_numeris,
-                pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki,
-                iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki,
-                pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
-                vilkikas, priekaba, atsakingas_vadybininkas,
-                kilometrai, frachtas, svoris, paleciu_skaicius, busena
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
-                klientas, uzsakymo_numeris, pakrovimo_numeris,
-                str(pakrovimo_data), str(pakrovimo_laikas_nuo), str(pakrovimo_laikas_iki),
-                str(iskrovimo_data), str(iskrovimo_laikas_nuo), str(iskrovimo_laikas_iki),
-                pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
-                vilkikas, priekaba, atsakingas_vadybininkas,
-                kilometrai, frachtas, svoris, paleciu_skaicius, busena
-            ))
-            conn.commit()
-            st.success("Krovinys įrašytas!")
+        c.execute("""INSERT INTO kroviniai (
+        klientas, uzsakymo_numeris, pakrovimo_numeris,
+        pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki,
+        iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki,
+        pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
+        vilkikas, priekaba, atsakingas_vadybininkas,
+        kilometrai, frachtas, svoris, paleciu_skaicius, busena
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+        klientas, uzsakymo_numeris, pakrovimo_numeris,
+        str(pakrovimo_data), str(pakrovimo_laikas_nuo), str(pakrovimo_laikas_iki),
+        str(iskrovimo_data), str(iskrovimo_laikas_nuo), str(iskrovimo_laikas_iki),
+        pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
+        vilkikas, priekaba, atsakingas_vadybininkas,
+        kilometrai, frachtas, svoris, paleciu_skaicius, busena
+        ))
+        conn.commit()
+        st.success("Krovinys įrašytas!")
         except Exception as e:
-            st.error(f"Klaida įrašant: {e}")
+        st.error(f"Klaida įrašant: {e}")
 
 st.subheader("Krovinių sąrašas")
 df = pd.read_sql_query("SELECT * FROM kroviniai", conn)
