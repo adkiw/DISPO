@@ -174,6 +174,19 @@ elif modulis == "Vilkikai":
 elif modulis == "Darbuotojai":
     st.title("DISPO – Darbuotojų valdymas")
 
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS darbuotojai (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vardas TEXT,
+        pavarde TEXT,
+        el_pastas TEXT,
+        telefonas TEXT,
+        pareigybe TEXT,
+        grupe TEXT
+    )
+    """)
+    conn.commit()
+
     with st.form("darbuotojo_forma", clear_on_submit=True):
         col1, col2 = st.columns(2)
         vardas = col1.text_input("Vardas")
@@ -201,5 +214,8 @@ elif modulis == "Darbuotojai":
             st.error(f"❌ Klaida įrašant: {e}")
 
     st.subheader("📋 Darbuotojų sąrašas")
-    df_darbuotojai = pd.read_sql_query("SELECT * FROM darbuotojai", conn)
-    st.dataframe(df_darbuotojai)
+    try:
+        df_darbuotojai = pd.read_sql_query("SELECT * FROM darbuotojai", conn)
+        st.dataframe(df_darbuotojai)
+    except Exception as e:
+        st.error(f"❌ Nepavyko įkelti darbuotojų sąrašo: {e}")
