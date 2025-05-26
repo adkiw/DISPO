@@ -65,7 +65,11 @@ if modulis == "Kroviniai":
         iskrovimo_miestas = col6.text_input("Iškrovimo miestas")
 
         col7, col8 = st.columns(2)
-        vilkikas = col7.text_input("Vilkiko numeris")
+        vilkikai_sarasas = [row[0] for row in c.execute("SELECT numeris FROM vilkikai").fetchall()]
+        if vilkikai_sarasas:
+            vilkikas = col7.selectbox("Vilkikas", vilkikai_sarasas)
+        else:
+            vilkikas = col7.text_input("Vilkikas (nėra įrašų, įveskite ranka)")
         priekaba = "PR" + vilkikas[-3:] if vilkikas and len(vilkikas) >= 3 else ""
         atsakingas_vadybininkas = "vadyb_" + vilkikas.lower() if vilkikas else ""
         col8.text_input("Priekaba", value=priekaba, disabled=True)
