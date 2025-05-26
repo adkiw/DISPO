@@ -4,15 +4,53 @@ import pandas as pd
 from datetime import datetime, date, time, timedelta
 
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
-c = conn.cursor()
 
 # Meniu pasirinkimas
 modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai"])
 
+# --- Duomenų bazių kūrimas ---
+# Vilkikai
+c.execute("""
+CREATE TABLE IF NOT EXISTS vilkikai (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numeris TEXT UNIQUE,
+    marke TEXT,
+    pagaminimo_metai INTEGER,
+    tech_apziura DATE,
+    priekaba TEXT,
+    vadybininkas TEXT
+)
+""")
+
+# Priekabos
+c.execute("""
+CREATE TABLE IF NOT EXISTS priekabos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numeris TEXT UNIQUE,
+    marke TEXT,
+    pagaminimo_metai INTEGER,
+    tech_apziura DATE
+)
+""")
+
+# Darbuotojai
+c.execute("""
+CREATE TABLE IF NOT EXISTS darbuotojai (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vardas TEXT,
+    pavarde TEXT,
+    pareigybe TEXT,
+    el_pastas TEXT,
+    telefonas TEXT
+)
+""")
+
+conn.commit()
+
+# --- KROVINIAI ---
 if modulis == "Kroviniai":
     st.title("DISPO – Krovinių valdymas")
 
-    # Kroviniai lentelė
     c.execute("""
     CREATE TABLE IF NOT EXISTS kroviniai (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,6 +130,9 @@ if modulis == "Kroviniai":
             st.error("❌ Privaloma užpildyti 'Klientas' ir 'Užsakymo numeris' laukus.")
         else:
             try:
+                c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
+                if c.fetchone()[0] > 0:
+                    st.warning("⚠️ Toks užsakymo numeris jau yra!")
                 kilometrai = int(kilometrai_raw) if kilometrai_raw else 0
                 frachtas = float(frachtas_raw) if frachtas_raw else 0.0
                 svoris = int(svoris_raw) if svoris_raw else 0
@@ -124,19 +165,9 @@ if modulis == "Kroviniai":
     df["Padėklų sk."] = df["paleciu_skaicius"]
     st.dataframe(df)
 
+# --- VILKIKAI ---
 elif modulis == "Vilkikai":
     st.title("DISPO – Vilkikų valdymas")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS vilkikai (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numeris TEXT UNIQUE,
-        marke TEXT,
-        pagaminimo_metai INTEGER,
-        tech_apziura DATE
-    )
-    """)
-    conn.commit()
 
     with st.form("vilkiku_forma", clear_on_submit=True):
         st.subheader("➕ Pridėti naują vilkiką")
@@ -145,8 +176,15 @@ elif modulis == "Vilkikai":
         marke = col2.text_input("Markė")
 
         col3, col4 = st.columns(2)
-        pagaminimo_metai = col3.text_input("Pagaminimo metai")
-        tech_apziura = col4.date_input("Paskutinė techninė apžiūra")
+        pagaminimo_metai = col3.text_input("Pagaminimo metai (pvz. 2016)")
+        tech_apziura_raw = col4.text_input("Techninės apžiūros data (YYYY-MM-DD)")
+
+        col5, col6 = st.columns(2)
+        priekabos_sarasas = [row[0] for row in c.execute("SELECT numeris FROM priekabos").fetchall()]
+        priekaba = col5.selectbox("Priekaba", priekabos_sarasas) if priekabos_sarasas else ""
+
+        vadybininkai = [f"{row[0]} {row[1]}" for row in c.execute("SELECT vardas, pavarde FROM darbuotojai WHERE pareigybe = 'transporto vadybininkas'")]
+        vadybininkas = col6.selectbox("Transporto vadybininkas", vadybininkai) if vadybininkai else ""
 
         vilkikas_submit = st.form_submit_button("💾 Įrašyti vilkiką")
 
@@ -155,8 +193,9 @@ elif modulis == "Vilkikai":
             st.warning("⚠️ Numeris ir pagaminimo metai yra privalomi.")
         else:
             try:
-                c.execute("INSERT INTO vilkikai (numeris, marke, pagaminimo_metai, tech_apziura) VALUES (?, ?, ?, ?)",
-                        (numeris, marke, int(pagaminimo_metai), str(tech_apziura)))
+                tech_apziura = tech_apziura_raw if tech_apziura_raw else None
+                c.execute("INSERT INTO vilkikai (numeris, marke, pagaminimo_metai, tech_apziura, priekaba, vadybininkas) VALUES (?, ?, ?, ?, ?, ?)",
+                        (numeris, marke, int(pagaminimo_metai), tech_apziura, priekaba, vadybininkas))
                 conn.commit()
                 st.success("✅ Vilkikas įrašytas sėkmingai!")
             except Exception as e:
@@ -164,9 +203,9 @@ elif modulis == "Vilkikai":
 
     st.subheader("📋 Vilkikų sąrašas")
     df_vilkikai = pd.read_sql_query("SELECT * FROM vilkikai", conn)
-    today = pd.to_datetime(date.today())
-    df_vilkikai["tech_apziura"] = pd.to_datetime(df_vilkikai["tech_apziura"])
-    df_vilkikai["🛠 TA liko (d.)"] = (df_vilkikai["tech_apziura"] - today).dt.days
-    df_vilkikai["TA Įspėjimas"] = df_vilkikai["🛠 TA liko (d.)"].apply(
-        lambda x: "⚠️ Baigiasi" if x < 30 else "")
+    if not df_vilkikai.empty:
+        today = pd.to_datetime(date.today())
+        df_vilkikai["tech_apziura"] = pd.to_datetime(df_vilkikai["tech_apziura"], errors='coerce')
+        df_vilkikai["🛠 TA liko (d.)"] = (df_vilkikai["tech_apziura"] - today).dt.days
+        df_vilkikai["TA Įspėjimas"] = df_vilkikai["🛠 TA liko (d.)"].apply(lambda x: "⚠️ Baigiasi" if pd.notnull(x) and x < 30 else "")
     st.dataframe(df_vilkikai)
