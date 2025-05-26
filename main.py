@@ -7,12 +7,12 @@ conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 c = conn.cursor()
 
 # Meniu pasirinkimas
-modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai", "Darbuotojai"])
+modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai", "Priekabos", "Darbuotojai"])
 
+# --------------------- KROVINIAI ---------------------
 if modulis == "Kroviniai":
     st.title("DISPO – Krovinių valdymas")
 
-    # Kroviniai lentelė
     c.execute("""
     CREATE TABLE IF NOT EXISTS kroviniai (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +45,6 @@ if modulis == "Kroviniai":
         col0a, col0b = st.columns(2)
         klientas = col0a.text_input("Klientas")
         uzsakymo_numeris = col0b.text_input("Užsakymo numeris")
-
         pakrovimo_numeris = st.text_input("Pakrovimo numeris")
 
         col1, col2 = st.columns(2)
@@ -124,6 +123,7 @@ if modulis == "Kroviniai":
     df["Padėklų sk."] = df["paleciu_skaicius"]
     st.dataframe(df)
 
+# --------------------- VILKIKAI ---------------------
 elif modulis == "Vilkikai":
     st.title("DISPO – Vilkikų valdymas")
 
@@ -156,7 +156,7 @@ elif modulis == "Vilkikai":
         else:
             try:
                 c.execute("INSERT INTO vilkikai (numeris, marke, pagaminimo_metai, tech_apziura) VALUES (?, ?, ?, ?)",
-                        (numeris, marke, int(pagaminimo_metai), str(tech_apziura)))
+                          (numeris, marke, int(pagaminimo_metai), str(tech_apziura)))
                 conn.commit()
                 st.success("✅ Vilkikas įrašytas sėkmingai!")
             except Exception as e:
@@ -167,10 +167,56 @@ elif modulis == "Vilkikai":
     today = pd.to_datetime(date.today())
     df_vilkikai["tech_apziura"] = pd.to_datetime(df_vilkikai["tech_apziura"])
     df_vilkikai["🛠 TA liko (d.)"] = (df_vilkikai["tech_apziura"] - today).dt.days
-    df_vilkikai["TA Įspėjimas"] = df_vilkikai["🛠 TA liko (d.)"].apply(
-        lambda x: "⚠️ Baigiasi" if x < 30 else "")
+    df_vilkikai["TA Įspėjimas"] = df_vilkikai["🛠 TA liko (d.)"].apply(lambda x: "⚠️ Baigiasi" if x < 30 else "")
     st.dataframe(df_vilkikai)
+    # --------------------- PRIEKABOS ---------------------
+elif modulis == "Priekabos":
+    st.title("DISPO – Priekabų valdymas")
 
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS priekabos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numeris TEXT UNIQUE,
+        tipas TEXT,
+        pagaminimo_metai INTEGER,
+        tech_apziura DATE
+    )
+    """)
+    conn.commit()
+
+    with st.form("priekabu_forma", clear_on_submit=True):
+        st.subheader("➕ Pridėti naują priekabą")
+        col1, col2 = st.columns(2)
+        numeris = col1.text_input("Valstybiniai numeriai")
+        tipas = col2.text_input("Tipas")
+
+        col3, col4 = st.columns(2)
+        pagaminimo_metai = col3.text_input("Pagaminimo metai")
+        tech_apziura = col4.date_input("Paskutinė techninė apžiūra")
+
+        priekaba_submit = st.form_submit_button("💾 Įrašyti priekabą")
+
+    if priekaba_submit:
+        if not numeris or not pagaminimo_metai:
+            st.warning("⚠️ Numeris ir pagaminimo metai yra privalomi.")
+        else:
+            try:
+                c.execute("INSERT INTO priekabos (numeris, tipas, pagaminimo_metai, tech_apziura) VALUES (?, ?, ?, ?)",
+                          (numeris, tipas, int(pagaminimo_metai), str(tech_apziura)))
+                conn.commit()
+                st.success("✅ Priekaba įrašyta sėkmingai!")
+            except Exception as e:
+                st.error(f"❌ Klaida įrašant: {e}")
+
+    st.subheader("📋 Priekabų sąrašas")
+    df_priekabos = pd.read_sql_query("SELECT * FROM priekabos", conn)
+    today = pd.to_datetime(date.today())
+    df_priekabos["tech_apziura"] = pd.to_datetime(df_priekabos["tech_apziura"])
+    df_priekabos["🛠 TA liko (d.)"] = (df_priekabos["tech_apziura"] - today).dt.days
+    df_priekabos["TA Įspėjimas"] = df_priekabos["🛠 TA liko (d.)"].apply(lambda x: "⚠️ Baigiasi" if x < 30 else "")
+    st.dataframe(df_priekabos)
+
+# --------------------- DARBUOTOJAI ---------------------
 elif modulis == "Darbuotojai":
     st.title("DISPO – Darbuotojų valdymas")
 
@@ -219,3 +265,4 @@ elif modulis == "Darbuotojai":
         st.dataframe(df_darbuotojai)
     except Exception as e:
         st.error(f"❌ Nepavyko įkelti darbuotojų sąrašo: {e}")
+
