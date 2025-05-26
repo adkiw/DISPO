@@ -221,3 +221,4 @@ elif modulis == "Vilkikai":
         df_vilkikai["🛠 TA liko (d.)"] = (df_vilkikai["tech_apziura"] - today).dt.days
         df_vilkikai["TA Įspėjimas"] = df_vilkikai["🛠 TA liko (d.)"].apply(lambda x: "⚠️ Baigiasi" if pd.notnull(x) and x < 30 else "")
     st.dataframe(df_vilkikai)
+''')
