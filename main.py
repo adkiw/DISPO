@@ -4,39 +4,19 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, date, time, timedelta
 
-st.markdown("<h1 style='text-align: center; color: #4CAF50;'>DISPO – Krovinių valdymas</h1>", unsafe_allow_html=True)
-
-st.markdown("""
-    <style>
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        font-size: 18px;
-        padding: 10px 24px;
-        border: none;
-        border-radius: 5px;
-    }
-    .stTextInput>div>div>input {
-        padding: 8px;
-        font-size: 16px;
-    }
-    .stSelectbox>div>div {
-        padding: 4px;
-        font-size: 16px;
-    }
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-conn = sqlite3.connect('dispo_cleanest2.db', check_same_thread=False)
+conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 c = conn.cursor()
 
-c.execute("DROP TABLE IF EXISTS kroviniai_cleanest")
+# Pridėti naują stulpelį, jei dar nėra
+try:
+    c.execute("ALTER TABLE kroviniai ADD COLUMN paleciu_skaicius INTEGER")
+    conn.commit()
+except:
+    pass  # Jei jau pridėtas, ignoruojame klaidą
+
+# Lentelė su tvarkinga stulpelių tvarka
 c.execute("""
-CREATE TABLE kroviniai_cleanest (
+CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     klientas TEXT,
     uzsakymo_numeris TEXT,
@@ -57,11 +37,13 @@ CREATE TABLE kroviniai_cleanest (
     kilometrai INTEGER,
     frachtas REAL,
     svoris INTEGER,
-    paleciai INTEGER,
+    paleciu_skaicius INTEGER,
     busena TEXT
 )
 """)
 conn.commit()
+
+st.title("DISPO – Krovinių valdymas")
 
 with st.form("forma", clear_on_submit=False):
     col0a, col0b = st.columns(2)
@@ -92,44 +74,52 @@ with st.form("forma", clear_on_submit=False):
     atsakingas_vadybininkas = "vadyb_" + vilkikas.lower() if vilkikas else ""
     col8.text_input("Priekaba", value=priekaba, disabled=True)
 
-    col9, col10, col11, col12 = st.columns(4)
+    col9, col10, col11 = st.columns(3)
     kilometrai_raw = col9.text_input("Kilometrai")
     frachtas_raw = col10.text_input("Frachtas (€)")
     svoris_raw = col11.text_input("Svoris (kg)")
-    paleciai_raw = col12.text_input("Padėčių skaičius")
+
+    col12 = st.columns(1)[0]
+    paleciu_raw = col12.text_input("Padėklų skaičius")
 
     busena = st.selectbox("Būsena", ["suplanuotas", "nesuplanuotas", "pakrautas", "iškrautas"])
     submit = st.form_submit_button("Įrašyti krovinį")
 
 if submit:
-    if iskrovimo_data < pakrovimo_data:
-        st.error("❌ Klaida: iškrovimo data negali būti ankstesnė nei pakrovimo data.")
-    else:
-        try:
-            kilometrai = int(kilometrai_raw)
-            frachtas = float(frachtas_raw)
-            svoris = int(svoris_raw)
-            paleciai = int(paleciai_raw)
+    try:
+        kilometrai = int(kilometrai_raw)
+        frachtas = float(frachtas_raw)
+        svoris = int(svoris_raw)
+        paleciu_skaicius = int(paleciu_raw)
 
-            c.execute("SELECT COUNT(*) FROM kroviniai_cleanest WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
-            if c.fetchone()[0] > 0:
-                st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
+        # Perspėjimas dėl uzsakymo numerio dublio
+        c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
+        if c.fetchone()[0] > 0:
+            st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
 
-            c.execute("INSERT INTO kroviniai_cleanest (klientas, uzsakymo_numeris, pakrovimo_numeris, pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki, iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki, pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas, vilkikas, priekaba, atsakingas_vadybininkas, kilometrai, frachtas, svoris, paleciai, busena) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (
-                klientas, uzsakymo_numeris, pakrovimo_numeris,
-                str(pakrovimo_data), str(pakrovimo_laikas_nuo), str(pakrovimo_laikas_iki),
-                str(iskrovimo_data), str(iskrovimo_laikas_nuo), str(iskrovimo_laikas_iki),
-                pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
-                vilkikas, priekaba, atsakingas_vadybininkas,
-                kilometrai, frachtas, svoris, paleciai, busena
-            ))
-            conn.commit()
-            st.success("✅ Krovinys įrašytas!")
-        except Exception as e:
-            st.error(f"Klaida įrašant: {e}")
+        c.execute("""INSERT INTO kroviniai (
+            klientas, uzsakymo_numeris, pakrovimo_numeris,
+            pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki,
+            iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki,
+            pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
+            vilkikas, priekaba, atsakingas_vadybininkas,
+            kilometrai, frachtas, svoris, paleciu_skaicius, busena
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+            klientas, uzsakymo_numeris, pakrovimo_numeris,
+            str(pakrovimo_data), str(pakrovimo_laikas_nuo), str(pakrovimo_laikas_iki),
+            str(iskrovimo_data), str(iskrovimo_laikas_nuo), str(iskrovimo_laikas_iki),
+            pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
+            vilkikas, priekaba, atsakingas_vadybininkas,
+            kilometrai, frachtas, svoris, paleciu_skaicius, busena
+        ))
+        conn.commit()
+        st.success("Krovinys įrašytas!")
+    except Exception as e:
+        st.error(f"Klaida įrašant: {e}")
 
 st.subheader("Krovinių sąrašas")
-df = pd.read_sql_query("SELECT * FROM kroviniai_cleanest", conn)
+df = pd.read_sql_query("SELECT * FROM kroviniai", conn)
 df["Krovinio ID"] = df["id"]
 df["EUR/km"] = df.apply(lambda row: round(row["frachtas"] / row["kilometrai"], 2) if row["kilometrai"] > 0 else 0, axis=1)
+df["Padėklų sk."] = df["paleciu_skaicius"]
 st.dataframe(df)
