@@ -11,9 +11,9 @@ modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai"
 
 # --- Duomenų bazių kūrimas ---
 # Vilkikai
-c.execute("""
+c.execute('''
 c.execute("DROP TABLE IF EXISTS vilkikai")
-c.execute("""
+c.execute('''
 CREATE TABLE vilkikai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numeris TEXT UNIQUE,
@@ -23,7 +23,7 @@ CREATE TABLE vilkikai (
     priekaba TEXT,
     vadybininkas TEXT
 )
-""")
+''')
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numeris TEXT UNIQUE,
     marke TEXT,
@@ -32,10 +32,10 @@ CREATE TABLE vilkikai (
     priekaba TEXT,
     vadybininkas TEXT
 )
-""")
+''')
 
 # Priekabos
-c.execute("""
+c.execute('''
 CREATE TABLE IF NOT EXISTS priekabos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numeris TEXT UNIQUE,
@@ -43,10 +43,10 @@ CREATE TABLE IF NOT EXISTS priekabos (
     pagaminimo_metai INTEGER,
     tech_apziura DATE
 )
-""")
+''')
 
 # Darbuotojai
-c.execute("""
+c.execute('''
 CREATE TABLE IF NOT EXISTS darbuotojai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     vardas TEXT,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS darbuotojai (
     el_pastas TEXT,
     telefonas TEXT
 )
-""")
+''')
 
 conn.commit()
 
@@ -63,7 +63,7 @@ conn.commit()
 if modulis == "Kroviniai":
     st.title("DISPO – Krovinių valdymas")
 
-    c.execute("""
+c.execute('''
     CREATE TABLE IF NOT EXISTS kroviniai (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         klientas TEXT,
@@ -88,7 +88,7 @@ if modulis == "Kroviniai":
         paleciu_skaicius INTEGER,
         busena TEXT
     )
-    """)
+''')
     conn.commit()
 
     with st.form("forma", clear_on_submit=False):
@@ -150,7 +150,7 @@ if modulis == "Kroviniai":
                 svoris = int(svoris_raw) if svoris_raw else 0
                 paleciu_skaicius = int(paleciu_raw) if paleciu_raw else 0
 
-                c.execute("""INSERT INTO kroviniai (
+c.execute('''
                     klientas, uzsakymo_numeris, pakrovimo_numeris,
                     pakrovimo_data, pakrovimo_laikas_nuo, pakrovimo_laikas_iki,
                     iskrovimo_data, iskrovimo_laikas_nuo, iskrovimo_laikas_iki,
