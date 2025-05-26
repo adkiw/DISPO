@@ -352,3 +352,53 @@ elif modulis == "Klientai":
     df = pd.read_sql_query("SELECT * FROM klientai", conn)
     st.subheader("📋 Klientų sąrašas")
     st.dataframe(df)
+# --------------------- DARBUOTOJAI ---------------------
+elif modulis == "Darbuotojai":
+    st.title("DISPO – Darbuotojų valdymas")
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS darbuotojai (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vardas TEXT,
+        pavarde TEXT,
+        pareigybe TEXT,
+        el_pastas TEXT,
+        telefonas TEXT,
+        grupe TEXT
+    )
+    """)
+    conn.commit()
+
+    with st.form("darbuotojo_forma", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        vardas = col1.text_input("Vardas")
+        pavarde = col2.text_input("Pavardė")
+
+        col3, col4 = st.columns(2)
+        pareigybe = col3.selectbox("Pareigybė", ["Ekspeditorius", "Transporto vadybininkas", "Vadovas", "Kita"])
+        grupe = col4.text_input("Priskirta grupė")
+
+        col5, col6 = st.columns(2)
+        el_pastas = col5.text_input("El. paštas")
+        telefonas = col6.text_input("Telefono numeris")
+
+        submit = st.form_submit_button("💾 Įrašyti darbuotoją")
+
+    if submit:
+        if not vardas or not pavarde:
+            st.warning("⚠️ Privaloma įvesti vardą ir pavardę.")
+        else:
+            try:
+                c.execute("""INSERT INTO darbuotojai (
+                    vardas, pavarde, pareigybe, el_pastas, telefonas, grupe
+                ) VALUES (?, ?, ?, ?, ?, ?)""", (
+                    vardas, pavarde, pareigybe, el_pastas, telefonas, grupe
+                ))
+                conn.commit()
+                st.success("✅ Darbuotojas įrašytas.")
+            except Exception as e:
+                st.error(f"❌ Klaida: {e}")
+
+    df = pd.read_sql_query("SELECT * FROM darbuotojai", conn)
+    st.subheader("📋 Darbuotojų sąrašas")
+    st.dataframe(df)
