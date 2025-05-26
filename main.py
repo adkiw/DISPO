@@ -88,11 +88,12 @@ with st.form("forma", clear_on_submit=False):
 if submit:
     if pakrovimo_data > iskrovimo_data:
         st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
+    else:
+    if pakrovimo_data > iskrovimo_data:
+        st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
     elif not klientas or not uzsakymo_numeris:
         st.error("❌ Privaloma užpildyti 'Klientas' ir 'Užsakymo numeris' laukus.")
     else:
-        st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
-        else:
         try:
         kilometrai = int(kilometrai_raw)
         frachtas = float(frachtas_raw)
