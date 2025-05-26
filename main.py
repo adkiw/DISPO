@@ -117,7 +117,7 @@ if submit:
 
 st.subheader("📦 Krovinių sąrašas")
 df = pd.read_sql_query("SELECT * FROM kroviniai", conn)
-df["Krovinio ID"] = df.apply(lambda row: f"{row['id']}-" + str((df[df["uzsakymo_numeris"] == row["uzsakymo_numeris"]].reset_index().index[row.name] + 1)), axis=1)
+df["Krovinio ID"] = df["id"].astype(str) + "-" + (df.groupby("uzsakymo_numeris").cumcount() + 1).astype(str)
 df["EUR/km"] = df.apply(lambda row: round(row["frachtas"] / row["kilometrai"], 2) if row["kilometrai"] > 0 else 0, axis=1)
 df["Padėklų sk."] = df["paleciu_skaicius"]
 st.dataframe(df)
