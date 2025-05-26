@@ -1,4 +1,3 @@
-
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -7,14 +6,7 @@ from datetime import datetime, date, time, timedelta
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 c = conn.cursor()
 
-# Pridėti naują stulpelį, jei dar nėra
-try:
-    c.execute("ALTER TABLE kroviniai ADD COLUMN paleciu_skaicius INTEGER")
-    conn.commit()
-except:
-    pass  # Jei jau pridėtas, ignoruojame klaidą
-
-# Lentelė su tvarkinga stulpelių tvarka
+# Sukuriama lentelė, jei dar nėra
 c.execute("""
 CREATE TABLE IF NOT EXISTS kroviniai (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,19 +83,17 @@ if submit:
     elif not klientas or not uzsakymo_numeris:
         st.error("❌ Privaloma užpildyti 'Klientas' ir 'Užsakymo numeris' laukus.")
     else:
-        if pakrovimo_data > iskrovimo_data:
-        st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
-        else:
         try:
-        kilometrai = int(kilometrai_raw)
-        frachtas = float(frachtas_raw)
-        svoris = int(svoris_raw)
-        paleciu_skaicius = int(paleciu_raw)
+            kilometrai = int(kilometrai_raw)
+            frachtas = float(frachtas_raw)
+            svoris = int(svoris_raw)
+            paleciu_skaicius = int(paleciu_raw)
 
-            # Perspėjimas dėl uzsakymo numerio dublio
             c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
-            if c.fetchone()[0] > 0:
+            count = c.fetchone()[0]
+            if count > 0:
                 st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
+                uzsakymo_numeris += f"-{count+1}"
 
             c.execute("""INSERT INTO kroviniai (
                 klientas, uzsakymo_numeris, pakrovimo_numeris,
@@ -121,11 +111,11 @@ if submit:
                 kilometrai, frachtas, svoris, paleciu_skaicius, busena
             ))
             conn.commit()
-            st.success("Krovinys įrašytas!")
+            st.success("✅ Krovinys įrašytas sėkmingai!")
         except Exception as e:
-            st.error(f"Klaida įrašant: {e}")
+            st.error(f"❌ Klaida įrašant: {e}")
 
-st.subheader("Krovinių sąrašas")
+st.subheader("📦 Krovinių sąrašas")
 df = pd.read_sql_query("SELECT * FROM kroviniai", conn)
 df["Krovinio ID"] = df["id"]
 df["EUR/km"] = df.apply(lambda row: round(row["frachtas"] / row["kilometrai"], 2) if row["kilometrai"] > 0 else 0, axis=1)
