@@ -39,20 +39,7 @@ if modulis == "Kroviniai":
         busena TEXT
     )
     """)
-    
-c.execute("""
-CREATE TABLE IF NOT EXISTS darbuotojai (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    vardas TEXT,
-    pavarde TEXT,
-    el_pastas TEXT,
-    telefonas TEXT,
-    pareigybe TEXT,
-    grupe TEXT
-)
-""")
-
-conn.commit()
+    conn.commit()
 
     with st.form("forma", clear_on_submit=False):
         col0a, col0b = st.columns(2)
