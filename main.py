@@ -87,6 +87,9 @@ with st.form("forma", clear_on_submit=False):
 
 if submit:
     if pakrovimo_data > iskrovimo_data:
+    elif not klientas or not uzsakymo_numeris:
+        st.error("❌ Privaloma užpildyti 'Klientas' ir 'Užsakymo numeris' laukus.")
+    else:
         st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
     else:
         try:
@@ -98,6 +101,9 @@ if submit:
             # Perspėjimas dėl uzsakymo numerio dublio
             c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
             if c.fetchone()[0] > 0:
+            # Pridėti požymį prie užsakymo numerio
+            base_id = c.execute("SELECT id FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,)).fetchone()[0]
+            uzsakymo_numeris += f"-{base_id}"
                 st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
 
             c.execute("""INSERT INTO kroviniai (
