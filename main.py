@@ -3,7 +3,6 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, date, time, timedelta
 
-conn = sqlite3.connect('dispo_new.db", check_same_thread=False)
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 
 # Meniu pasirinkimas
