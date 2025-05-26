@@ -84,10 +84,10 @@ if submit:
         st.error("❌ Privaloma užpildyti 'Klientas' ir 'Užsakymo numeris' laukus.")
     else:
         try:
-            kilometrai = int(kilometrai_raw)
-            frachtas = float(frachtas_raw)
-            svoris = int(svoris_raw)
-            paleciu_skaicius = int(paleciu_raw)
+            kilometrai = int(kilometrai_raw) if kilometrai_raw else 0
+            frachtas = float(frachtas_raw) if frachtas_raw else 0.0
+            svoris = int(svoris_raw) if svoris_raw else 0
+            paleciu_skaicius = int(paleciu_raw) if paleciu_raw else 0
 
             c.execute("SELECT COUNT(*) FROM kroviniai WHERE uzsakymo_numeris = ?", (uzsakymo_numeris,))
             count = c.fetchone()[0]
