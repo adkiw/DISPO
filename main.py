@@ -93,7 +93,6 @@ if submit:
             count = c.fetchone()[0]
             if count > 0:
                 st.warning("⚠️ Toks užsakymo numeris jau yra. Vis tiek įrašoma.")
-                uzsakymo_numeris += f"-{count+1}"
 
             c.execute("""INSERT INTO kroviniai (
                 klientas, uzsakymo_numeris, pakrovimo_numeris,
