@@ -3,11 +3,14 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, date, time, timedelta
 
+# Prisijungimas prie duomenų bazės
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 c = conn.cursor()
 
 # Meniu pasirinkimas
-modulis = st.sidebar.selectbox("📂 Pasirink modulį", ["Kroviniai", "Vilkikai", "Priekabos", "Darbuotojai"])
+modulis = st.sidebar.selectbox("📂 Pasirink modulį", [
+    "Kroviniai", "Vilkikai", "Priekabos", "Darbuotojai", "Grupės", "Vairuotojai", "Klientai"
+])
 
 # --------------------- KROVINIAI ---------------------
 if modulis == "Kroviniai":
@@ -166,103 +169,6 @@ elif modulis == "Vilkikai":
     df_vilkikai = pd.read_sql_query("SELECT * FROM vilkikai", conn)
     today = pd.to_datetime(date.today())
     df_vilkikai["tech_apziura"] = pd.to_datetime(df_vilkikai["tech_apziura"])
-    df_vilkikai["🛠 TA liko (d.)"] = (df_vilkikai["tech_apziura"] - today).dt.days
-    df_vilkikai["TA Įspėjimas"] = df_vilkikai["🛠 TA liko (d.)"].apply(lambda x: "⚠️ Baigiasi" if x < 30 else "")
-    st.dataframe(df_vilkikai)
-    # --------------------- PRIEKABOS ---------------------
-elif modulis == "Priekabos":
-    st.title("DISPO – Priekabų valdymas")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS priekabos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numeris TEXT UNIQUE,
-        tipas TEXT,
-        pagaminimo_metai INTEGER,
-        tech_apziura DATE
-    )
-    """)
-    conn.commit()
-
-    with st.form("priekabu_forma", clear_on_submit=True):
-        st.subheader("➕ Pridėti naują priekabą")
-        col1, col2 = st.columns(2)
-        numeris = col1.text_input("Valstybiniai numeriai")
-        tipas = col2.text_input("Tipas")
-
-        col3, col4 = st.columns(2)
-        pagaminimo_metai = col3.text_input("Pagaminimo metai")
-        tech_apziura = col4.date_input("Paskutinė techninė apžiūra")
-
-        priekaba_submit = st.form_submit_button("💾 Įrašyti priekabą")
-
-    if priekaba_submit:
-        if not numeris or not pagaminimo_metai:
-            st.warning("⚠️ Numeris ir pagaminimo metai yra privalomi.")
-        else:
-            try:
-                c.execute("INSERT INTO priekabos (numeris, tipas, pagaminimo_metai, tech_apziura) VALUES (?, ?, ?, ?)",
-                          (numeris, tipas, int(pagaminimo_metai), str(tech_apziura)))
-                conn.commit()
-                st.success("✅ Priekaba įrašyta sėkmingai!")
-            except Exception as e:
-                st.error(f"❌ Klaida įrašant: {e}")
-
-    st.subheader("📋 Priekabų sąrašas")
-    df_priekabos = pd.read_sql_query("SELECT * FROM priekabos", conn)
-    today = pd.to_datetime(date.today())
-    df_priekabos["tech_apziura"] = pd.to_datetime(df_priekabos["tech_apziura"])
-    df_priekabos["🛠 TA liko (d.)"] = (df_priekabos["tech_apziura"] - today).dt.days
-    df_priekabos["TA Įspėjimas"] = df_priekabos["🛠 TA liko (d.)"].apply(lambda x: "⚠️ Baigiasi" if x < 30 else "")
-    st.dataframe(df_priekabos)
-
-# --------------------- DARBUOTOJAI ---------------------
-elif modulis == "Darbuotojai":
-    st.title("DISPO – Darbuotojų valdymas")
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS darbuotojai (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vardas TEXT,
-        pavarde TEXT,
-        el_pastas TEXT,
-        telefonas TEXT,
-        pareigybe TEXT,
-        grupe TEXT
-    )
-    """)
-    conn.commit()
-
-    with st.form("darbuotojo_forma", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        vardas = col1.text_input("Vardas")
-        pavarde = col2.text_input("Pavardė")
-
-        col3, col4 = st.columns(2)
-        el_pastas = col3.text_input("El. paštas")
-        telefonas = col4.text_input("Telefono numeris")
-
-        pareigybe = st.selectbox("Pareigybė", ["Ekspeditorius", "Transporto vadybininkas", "Vadovas", "Kita"])
-        grupe = st.text_input("Grupė")
-
-        darbuotojas_submit = st.form_submit_button("💾 Įrašyti darbuotoją")
-
-    if darbuotojas_submit:
-        try:
-            c.execute("""
-                INSERT INTO darbuotojai (vardas, pavarde, el_pastas, telefonas, pareigybe, grupe)
-                VALUES (?, ?, ?, ?, ?, ?)""",
-                (vardas, pavarde, el_pastas, telefonas, pareigybe, grupe)
-            )
-            conn.commit()
-            st.success("✅ Darbuotojas įrašytas sėkmingai!")
-        except Exception as e:
-            st.error(f"❌ Klaida įrašant: {e}")
-
-    st.subheader("📋 Darbuotojų sąrašas")
-    try:
-        df_darbuotojai = pd.read_sql_query("SELECT * FROM darbuotojai", conn)
-        st.dataframe(df_darbuotojai)
-    except Exception as e:
-        st.error(f"❌ Nepavyko įkelti darbuotojų sąrašo: {e}")
-
+    df_vilkikai["🛠 TA liko (d.)"] = (df_vilkikai
+::contentReference[oaicite:4]{index=4}
+ 
