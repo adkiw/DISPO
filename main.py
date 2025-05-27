@@ -7,19 +7,18 @@ from datetime import date, time, timedelta
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 c = conn.cursor()
 
-# ─── Lookup lentelė visoms dropdown reikšmėms ─────────────────────────────────
+# ─── Universali lookup lentelė ────────────────────────────────────────────────
 c.execute("""
 CREATE TABLE IF NOT EXISTS lookup (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modulis TEXT,
     kategorija TEXT,
     reiksme TEXT UNIQUE
 )
 """)
 conn.commit()
 
-# ─── Pagrindinių lentelių sukūrimas ────────────────────────────────────────────
-tables = {
+# ─── Kitos lentelės ───────────────────────────────────────────────────────────
+table_ddls = {
     "kroviniai": """
         CREATE TABLE IF NOT EXISTS kroviniai (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,143 +109,156 @@ tables = {
         )
     """
 }
-
-for ddl in tables.values():
+for ddl in table_ddls.values():
     c.execute(ddl)
 conn.commit()
 
-# ─── Šoninė meniu juosta ──────────────────────────────────────────────────────
-modules = [
+# ─── Modulių pasirinkimas (visada matomas sąrašas) ──────────────────────────
+moduliai = [
     "Kroviniai", "Vilkikai", "Priekabos",
     "Grupės", "Vairuotojai", "Klientai",
     "Darbuotojai", "Nustatymai"
 ]
-modulis = st.sidebar.selectbox("📂 Pasirink modulį", modules)
+modulis = st.sidebar.radio("📂 Pasirink modulį", moduliai)
 
-# ─── NUSTATYMAI ───────────────────────────────────────────────────────────────
+# ─── NUSTATYMAI: visiškai dinamiškas dropdown valdymas ────────────────────────
 if modulis == "Nustatymai":
     st.title("DISPO – Sąrašų valdymas")
 
-    # 1) Pasirinktas modulis (iš tų be pačių Nustatymų)
-    sel_mod = st.selectbox("Modulis", [m for m in modules if m != "Nustatymai"], key="ns_mod")
-
-    # 2) Gauname kategorijas to modulio
-    cats = [r[0] for r in c.execute(
-        "SELECT DISTINCT kategorija FROM lookup WHERE modulis=?", (sel_mod,)
+    # 1) Užkraunam visus unikalius kategorijų pavadinimus
+    kategorijos = [row[0] for row in c.execute(
+        "SELECT DISTINCT kategorija FROM lookup"
     ).fetchall()]
 
-    # 3) Esama arba nauja kategorija
+    # 2) Pasirink esamą arba įvesk naują
     col1, col2 = st.columns(2)
-    esama = col1.selectbox("Esama kategorija", [""] + cats, key="ns_esama")
-    nauja = col2.text_input("Arba įrašyk naują", key="ns_nauja")
-    kat = nauja.strip() if nauja else esama
+    esama = col1.selectbox("Esama kategorija", [""] + kategorijos)
+    nauja_kat = col2.text_input("Arba nauja kategorija")
+    kategorija = nauja_kat.strip() if nauja_kat else esama
 
     st.markdown("---")
-    if not kat:
-        st.info("Pasirink arba įrašyk kategoriją, kad galėtum valdyti reikšmes.")
-    else:
-        st.subheader(f"{sel_mod} – {kat}")
-        # esamos reikšmės
+    if kategorija:
+        st.subheader(f"Kategorija: **{kategorija}**")
+        # 3a) Esamos reikšmės
         values = [r[0] for r in c.execute(
-            "SELECT reiksme FROM lookup WHERE modulis=? AND kategorija=?", (sel_mod, kat)
+            "SELECT reiksme FROM lookup WHERE kategorija = ?", (kategorija,)
         ).fetchall()]
-        st.write(values or "_(nėra įrašų)_")
-
-        # ––––– Pridėti naują –––––
-        with st.form("ns_add_form", clear_on_submit=True):
-            newv = st.text_input("Pridėti naują reikšmę", key="ns_newv")
-            submit_add = st.form_submit_button("➕ Pridėti")
-        if submit_add and newv:
-            try:
+        st.write(values or "_(nerasta reikšmių)_")
+        # 3b) Pridėti
+        nauja_reiksme = st.text_input("Pridėti naują reikšmę")
+        if st.button("➕ Pridėti reikšmę"):
+            if nauja_reiksme:
+                try:
+                    c.execute(
+                        "INSERT INTO lookup(kategorija, reiksme) VALUES(?, ?)",
+                        (kategorija, nauja_reiksme)
+                    )
+                    conn.commit()
+                    st.success(f"✅ Pridėta: {nauja_reiksme}")
+                except sqlite3.IntegrityError:
+                    st.warning("⚠️ Toks elementas jau egzistuoja.")
+        # 3c) Trinti
+        istr = st.selectbox("Ištrinti reikšmę", [""] + values)
+        if st.button("🗑 Ištrinti reikšmę"):
+            if istr:
                 c.execute(
-                    "INSERT INTO lookup (modulis,kategorija,reiksme) VALUES (?,?,?)",
-                    (sel_mod, kat, newv)
-                )
-                conn.commit()
-                st.success(f"✅ Pridėta: {newv}")
-                st.experimental_rerun()
-            except sqlite3.IntegrityError:
-                st.warning("⚠️ Toks įrašas jau egzistuoja.")
-
-        st.markdown("---")
-
-        # ––––– Ištrinti esamą –––––
-        if values:
-            with st.form("ns_del_form", clear_on_submit=True):
-                istr = st.selectbox("Ištrinti reikšmę", [""] + values, key="ns_del_sel")
-                submit_del = st.form_submit_button("🗑 Ištrinti")
-            if submit_del and istr:
-                c.execute(
-                    "DELETE FROM lookup WHERE modulis=? AND kategorija=? AND reiksme=?",
-                    (sel_mod, kat, istr)
+                    "DELETE FROM lookup WHERE kategorija = ? AND reiksme = ?",
+                    (kategorija, istr)
                 )
                 conn.commit()
                 st.success(f"✅ Ištrinta: {istr}")
-                st.experimental_rerun()
+    else:
+        st.info("Pasirink arba sukurk kategoriją, kad valdytum reikšmes.")
 
 # ─── KROVINIAI ────────────────────────────────────────────────────────────────
 elif modulis == "Kroviniai":
     st.title("DISPO – Krovinių valdymas")
 
-    with st.form("kro_form", clear_on_submit=False):
-        c0, c1 = st.columns(2)
-        klientai = [f"{r[1]} ({r[4]})" for r in c.execute(
-            "SELECT id,pavadinimas,regionas,vat_numeris,miestas FROM klientai"
+    with st.form("krovinio_forma", clear_on_submit=False):
+        # 1) Klientas tik iš klientų
+        klientai = [r[0] for r in c.execute(
+            "SELECT pavadinimas FROM klientai"
         ).fetchall()]
-        klientas = c0.selectbox("Klientas", [""] + klientai, key="kro_cli")
-        uzsakymo_numeris = c0.text_input("Užsakymo numeris", key="kro_un")
-        pakrovimo_numeris = c1.text_input("Pakrovimo numeris", key="kro_pn")
+        if klientai:
+            klientas = st.selectbox("Klientas", klientai)
+        else:
+            klientas = st.text_input("Klientas (nėra įvestų)")
 
-        c2, c3 = st.columns(2)
-        pakrovimo_data = c2.date_input("Pakrovimo data", date.today(), key="kro_pd")
-        pak_nuo = c2.time_input("Laikas nuo (pakr.)", time(8,0), key="kro_pnuo")
-        iskrovimo_data = c3.date_input("Iškrovimo data", pakrovimo_data+timedelta(days=1), key="kro_id")
-        isk_nuo = c3.time_input("Laikas nuo (išk.)", time(8,0), key="kro_inuo")
+        uzsakymo_numeris = st.text_input("Užsakymo numeris")
+        pakrovimo_numeris = st.text_input("Pakrovimo numeris")
 
-        c4, c5 = st.columns(2)
-        pak_iki = c4.time_input("Laikas iki (pakr.)", time(17,0), key="kro_piki")
-        isk_iki = c5.time_input("Laikas iki (išk.)", time(17,0), key="kro_iiki")
+        col1, col2 = st.columns(2)
+        pakrovimo_data = col1.date_input("Pakrovimo data", date.today())
+        pakrovimo_laikas_nuo = col1.time_input("Laikas nuo (pakrovimas)", time(8,0))
+        iskrovimo_data = col2.date_input("Iškrovimo data", pakrovimo_data + timedelta(days=1))
+        iskrovimo_laikas_nuo = col2.time_input("Laikas nuo (iškrovimas)", time(8,0))
 
-        c6, c7 = st.columns(2)
-        pak_salis = c6.text_input("Pakrovimo šalis", key="kro_ps")
-        pak_miestas = c6.text_input("Pakrovimo miestas", key="kro_pm")
-        isk_salis = c7.text_input("Iškrovimo šalis", key="kro_is")
-        isk_miestas = c7.text_input("Iškrovimo miestas", key="kro_im")
+        col3, col4 = st.columns(2)
+        pakrovimo_laikas_iki = col3.time_input("Laikas iki (pakrovimas)", time(17,0))
+        iskrovimo_laikas_iki = col4.time_input("Laikas iki (iškrovimas)", time(17,0))
 
-        # vilkikas + priekaba
+        col5, col6 = st.columns(2)
+        pakrovimo_salis = col5.text_input("Pakrovimo šalis")
+        pakrovimo_miestas = col5.text_input("Pakrovimo miestas")
+        iskrovimo_salis = col6.text_input("Iškrovimo šalis")
+        iskrovimo_miestas = col6.text_input("Iškrovimo miestą")
+
+        # 2) Vilkikas ir priekaba tik iš vilkikų
         vilkikai = [r[0] for r in c.execute("SELECT numeris FROM vilkikai").fetchall()]
-        vilkikas = c2.selectbox("Vilkikas", [""]+vilkikai, key="kro_vilk")
-        priekaba = ""
-        if vilkikas:
-            row = c.execute("SELECT priekaba FROM vilkikai WHERE numeris=?", (vilkikas,)).fetchone()
-            priekaba = row[0] if row else ""
-        c3.text_input("Priekaba", value=priekaba, disabled=True, key="kro_pr")
+        if vilkikai:
+            vilkikas = st.selectbox("Vilkikas", vilkikai)
+            # automatinė priekaba pagal vilkikus
+            priekaba = c.execute(
+                "SELECT priekaba FROM vilkikai WHERE numeris = ?",
+                (vilkikas,)
+            ).fetchone()
+            priekaba = priekaba[0] if priekaba and priekaba[0] else ""
+        else:
+            vilkikas = st.text_input("Vilkikas (nėra įvestų)")
+            priekaba = ""
+        st.text_input("Priekaba", value=priekaba, disabled=True)
 
-        km, fr, sv = c4.number_input("Kilometrai", 0, key="kro_km"), c5.number_input("Frachtas (€)", 0.0, key="kro_fr"), c6.number_input("Svoris (kg)", 0, key="kro_sv")
-        pal = st.number_input("Padėklų skaičius", 0, key="kro_pl")
+        col7, col8, col9 = st.columns(3)
+        kilometrai = col7.text_input("Kilometrai")
+        frachtas = col8.text_input("Frachtas (€)")
+        svoris = col9.text_input("Svoris (kg)")
+        paleciu = st.text_input("Padėklų skaičius")
 
-        bus_list = [r[0] for r in c.execute("SELECT reiksme FROM lookup WHERE modulis='Kroviniai' AND kategorija='busena'").fetchall()]
-        busena = st.selectbox("Būsena", bus_list or ["suplanuotas","pakrautas","iškrautas"], key="kro_bs")
+        # 3) Būsena iš lookup
+        busena_opt = [r[0] for r in c.execute(
+            "SELECT reiksme FROM lookup WHERE kategorija = ?", ("busena",)
+        ).fetchall()]
+        busena = st.selectbox("Būsena", busena_opt) if busena_opt else st.selectbox(
+            "Būsena", ["suplanuotas","nesuplanuotas","pakrautas","iškrautas"]
+        )
 
-        submit = st.form_submit_button("💾 Įrašyti krovinį", key="kro_submit")
+        submit = st.form_submit_button("💾 Įrašyti krovinį")
 
     if submit:
+        # validacija
         if pakrovimo_data > iskrovimo_data:
-            st.error("❌ Pakrovimo data vėlesnė už iškrovimo.")
+            st.error("❌ Pakrovimo data negali būti vėlesnė už iškrovimo datą.")
         elif not klientas or not uzsakymo_numeris:
-            st.error("❌ Pasirink klientą ir įvesk užsakymo numerį.")
+            st.error("❌ Privalomi laukai: Klientas ir Užsakymo numeris.")
         else:
-            # unique uzsakymo numerio sufiksas
+            # generatorius unikaliam numeriui
             base = uzsakymo_numeris
-            existing = [r[0] for r in c.execute(
-                "SELECT uzsakymo_numeris FROM kroviniai WHERE uzsakymo_numeris LIKE ?", (base+"%",)
+            egzistuojantys = [r[0] for r in c.execute(
+                "SELECT uzsakymo_numeris FROM kroviniai WHERE uzsakymo_numeris LIKE ?",
+                (f"{base}%",)
             ).fetchall()]
-            suffix = ""
-            if existing:
-                count = len(existing)
-                suffix = f"-{count}"
-            final_un = base + suffix
+            if base in egzistuojantys:
+                suffix = sum(1 for x in egzistuojantys if x.startswith(base))
+                uzsakymo_numeris = f"{base}-{suffix}"
+                st.warning(f"🔔 Toks numeris jau egzistuoja – išsaugotas kaip `{uzsakymo_numeris}`.")
 
+            # konvertavimas
+            km = int(kilometrai or 0)
+            fr = float(frachtas or 0)
+            sv = int(svoris or 0)
+            pal = int(paleciu or 0)
+
+            # įrašymas
             c.execute("""
                 INSERT INTO kroviniai (
                     klientas, uzsakymo_numeris, pakrovimo_numeris,
@@ -257,188 +269,181 @@ elif modulis == "Kroviniai":
                     kilometrai, frachtas, svoris, paleciu_skaicius, busena
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
-                klientas, final_un, pakrovimo_numeris,
-                str(pakrovimo_data), str(pak_nuo), str(pak_iki),
-                str(iskrovimo_data), str(isk_nuo), str(isk_iki),
-                pak_salis, pak_miestas, isk_salis, isk_miestas,
-                vilkikas, priekaba, "",
+                klientas, uzsakymo_numeris, pakrovimo_numeris,
+                str(pakrovimo_data), str(pakrovimo_laikas_nuo), str(pakrovimo_laikas_iki),
+                str(iskrovimo_data), str(iskrovimo_laikas_nuo), str(iskrovimo_laikas_iki),
+                pakrovimo_salis, pakrovimo_miestas, iskrovimo_salis, iskrovimo_miestas,
+                vilkikas, priekaba, f"vadyb_{vilkikas.lower()}",
                 km, fr, sv, pal, busena
             ))
             conn.commit()
-            st.success(f"✅ Krovinys įrašytas kaip {final_un}.")
+            st.success("✅ Krovinį išsaugojau.")
 
     st.subheader("📋 Krovinių sąrašas")
-    df = pd.read_sql_query("SELECT * FROM kroviniai", conn)
-    st.dataframe(df)
+    st.dataframe(pd.read_sql_query("SELECT * FROM kroviniai", conn))
 
 # ─── VILKIKAI ────────────────────────────────────────────────────────────────
 elif modulis == "Vilkikai":
     st.title("DISPO – Vilkikų valdymas")
-    with st.form("vi_form", clear_on_submit=True):
-        numeris = st.text_input("Vilkiko numeris", key="vi_num")
-        # dinaminė markė
-        marke_list = [r[0] for r in c.execute(
-            "SELECT reiksme FROM lookup WHERE modulis='Vilkikai' AND kategorija='marke'"
+    with st.form("vilkikai_forma", clear_on_submit=True):
+        numeris = st.text_input("Numeris")
+        # markės iš lookup
+        marks = [r[0] for r in c.execute(
+            "SELECT reiksme FROM lookup WHERE kategorija = ?", ("vilkiku_marke",)
         ).fetchall()]
-        marke = st.selectbox("Markė", [""]+marke_list, key="vi_marke") \
-            if marke_list else st.text_input("Markė", key="vi_marke_txt")
-        pag = st.number_input("Pagaminimo metai", 1900, date.today().year, key="vi_pag")
-        tech = st.date_input("Techninė apžiūra", key="vi_tech")
-        vadyb = st.text_input("Vadybininkas", key="vi_vadyb")
-        vair = st.text_input("Vairuotojai (kableliai)", key="vi_vair")
-        prie = st.text_input("Priekaba", key="vi_prie")
-
-        submit = st.form_submit_button("💾 Įrašyti vilkiką", key="vi_submit")
-    if submit and numeris:
-        try:
-            c.execute("""
-                INSERT INTO vilkikai
-                (numeris,marke,pagaminimo_metai,tech_apziura,vadybininkas,vairuotojai,priekaba)
-                VALUES (?,?,?,?,?,?,?)
-            """, (numeris, marke, pag, str(tech), vadyb, vair, prie))
-            conn.commit()
-            st.success("✅ Vilkikas įrašytas.")
-        except Exception as e:
-            st.error(f"❌ {e}")
-
-    st.subheader("📋 Vilkikų sąrašas")
+        if marks:
+            marke = st.selectbox("Markė", marks)
+        else:
+            marke = st.text_input("Markė")
+        pag_metai = st.text_input("Pagaminimo metai")
+        tech_apz = st.date_input("Tech. apžiūra")
+        vadyb = st.text_input("Vadybininkas")
+        vair = st.text_input("Vairuotojai (kableliai)")
+        priek = st.text_input("Priekaba")
+        sub = st.form_submit_button("💾 Įrašyti vilkiką")
+    if sub:
+        if not numeris:
+            st.warning("⚠️ Įveskite numerį.")
+        else:
+            try:
+                c.execute("""
+                    INSERT INTO vilkikai (
+                        numeris, marke, pagaminimo_metai, tech_apziura,
+                        vadybininkas, vairuotojai, priekaba
+                    ) VALUES (?,?,?,?,?,?,?)
+                """, (numeris, marke, int(pag_metai or 0), str(tech_apz),
+                      vadyb, vair, priek))
+                conn.commit(); st.success("✅ Išsaugojau.")
+            except Exception as e:
+                st.error(f"❌ Klaida: {e}")
     st.dataframe(pd.read_sql_query("SELECT * FROM vilkikai", conn))
 
 # ─── PRIEKABOS ───────────────────────────────────────────────────────────────
 elif modulis == "Priekabos":
     st.title("DISPO – Priekabų valdymas")
-    with st.form("pr_form", clear_on_submit=True):
-        tip_list = [r[0] for r in c.execute(
-            "SELECT reiksme FROM lookup WHERE modulis='Priekabos' AND kategorija='tipas'"
+    with st.form("priek_form", clear_on_submit=True):
+        # tipai iš lookup
+        tipai = [r[0] for r in c.execute(
+            "SELECT reiksme FROM lookup WHERE kategorija = ?", ("priekabu_tipas",)
         ).fetchall()]
-        tip = st.selectbox("Priekabos tipas", [""]+tip_list, key="pr_tip") \
-            if tip_list else st.text_input("Priekabos tipas", key="pr_tip_txt")
-        num = st.text_input("Numeris", key="pr_num")
-        mar = st.text_input("Markė", key="pr_mar")
-        pag = st.number_input("Pagaminimo metai", 1900, date.today().year, key="pr_pag")
-        tech = st.date_input("Techninė apžiūra", key="pr_tech")
-        asv = st.selectbox("Priskirtas vilkikas", [""] + [r[0] for r in c.execute("SELECT numeris FROM vilkikai")], key="pr_asv")
-
-        submit = st.form_submit_button("💾 Išsaugoti priekabą", key="pr_submit")
-    if submit and num:
-        try:
-            c.execute("""
-                INSERT INTO priekabos
-                (priekabu_tipas,numeris,marke,pagaminimo_metai,tech_apziura,priskirtas_vilkikas)
-                VALUES (?,?,?,?,?,?)
-            """, (tip, num, mar, pag, str(tech), asv))
-            conn.commit()
-            st.success("✅ Priekaba įrašyta.")
-        except Exception as e:
-            st.error(f"❌ {e}")
-
-    st.subheader("📋 Priekabų sąrašas")
+        if tipai:
+            pr_tipas = st.selectbox("Tipas", tipai)
+        else:
+            pr_tipas = st.text_input("Tipas")
+        num = st.text_input("Numeris")
+        mr = st.text_input("Markė")
+        pm = st.text_input("Pagaminimo metai")
+        ta = st.date_input("Tech. apžiūra")
+        pv = st.text_input("Priskirtas vilkikas")
+        sb = st.form_submit_button("💾 Išsaugoti")
+    if sb:
+        if not num: st.warning("⚠️ Įveskite numerį.")
+        else:
+            try:
+                c.execute("""
+                    INSERT INTO priekabos (
+                        priekabu_tipas, numeris, marke,
+                        pagaminimo_metai, tech_apziura, priskirtas_vilkikas
+                    ) VALUES (?,?,?,?,?,?)
+                """, (pr_tipas, num, mr, int(pm or 0), str(ta), pv))
+                conn.commit(); st.success("✅ Išsaugojau.")
+            except Exception as e:
+                st.error(f"❌ Klaida: {e}")
     st.dataframe(pd.read_sql_query("SELECT * FROM priekabos", conn))
 
 # ─── GRUPĖS ─────────────────────────────────────────────────────────────────
 elif modulis == "Grupės":
-    st.title("DISPO – Darbo grupių valdymas")
-    with st.form("gr_form", clear_on_submit=True):
-        num = st.text_input("Grupės numeris", key="gr_num")
-        pav = st.text_input("Pavadinimas", key="gr_pav")
-        apr = st.text_area("Aprašymas", key="gr_apr")
-        submit = st.form_submit_button("💾 Išsaugoti grupę", key="gr_submit")
-    if submit and num and pav:
-        try:
-            c.execute("INSERT INTO grupes(numeris,pavadinimas,aprasymas) VALUES (?,?,?)", (num,pav,apr))
-            conn.commit()
-            st.success("✅ Grupė įrašyta.")
-        except Exception as e:
-            st.error(f"❌ {e}")
-
-    st.subheader("📋 Grupės sąrašas")
+    st.title("DISPO – Grupės")
+    with st.form("grp_form", clear_on_submit=True):
+        nr = st.text_input("Numeris")
+        pav = st.text_input("Pavadinimas")
+        apr = st.text_area("Aprašymas")
+        sb = st.form_submit_button("💾 Išsaugoti")
+    if sb:
+        if not nr or not pav: st.warning("⚠️ Numeris ir pavadinimas būtini.")
+        else:
+            try:
+                c.execute(
+                    "INSERT INTO grupes(numeris,pavadinimas,aprasymas) VALUES(?,?,?)",
+                    (nr,pav,apr)
+                )
+                conn.commit(); st.success("✅ Išsaugojau.")
+            except Exception as e:
+                st.error(f"❌ Klaida: {e}")
     st.dataframe(pd.read_sql_query("SELECT * FROM grupes", conn))
 
 # ─── VAIRUOTOJAI ─────────────────────────────────────────────────────────────
 elif modulis == "Vairuotojai":
-    st.title("DISPO – Vairuotojų valdymas")
-    with st.form("va_form", clear_on_submit=True):
-        v = st.text_input("Vardas", key="va_v")
-        p = st.text_input("Pavardė", key="va_p")
-        g = st.number_input("Gimimo metai", 1900, date.today().year, key="va_g")
-        t = st.text_input("Tautybė", key="va_t")
-        pv = st.selectbox("Priskirtas vilkikas", [""]+[r[0] for r in c.execute("SELECT numeris FROM vilkikai")], key="va_pr")
-        submit = st.form_submit_button("💾 Išsaugoti vairuotoją", key="va_submit")
-    if submit and v and p:
-        try:
-            c.execute("INSERT INTO vairuotojai(vardas,pavarde,gimimo_metai,tautybe,priskirtas_vilkikas) VALUES (?,?,?,?,?)",
-                      (v,p,g,t,pv))
-            conn.commit()
-            st.success("✅ Vairuotojas įrašytas.")
-        except Exception as e:
-            st.error(f"❌ {e}")
-
-    st.subheader("📋 Vairuotojų sąrašas")
+    st.title("DISPO – Vairuotojai")
+    with st.form("drv_form", clear_on_submit=True):
+        vd = st.text_input("Vardas"); pv = st.text_input("Pavardė")
+        gm = st.text_input("Gimimo metai"); tt = st.text_input("Tautybė")
+        pvk = st.text_input("Priskirtas vilkikas")
+        sb = st.form_submit_button("💾 Išsaugoti")
+    if sb:
+        if not vd or not pv: st.warning("⚠️ Reikia vardo ir pavardės.")
+        else:
+            try:
+                c.execute("""
+                    INSERT INTO vairuotojai (
+                        vardas,pavarde,gimimo_metai,tautybe,priskirtas_vilkikas
+                    ) VALUES(?,?,?,?,?)
+                """, (vd,pv,int(gm or 0),tt,pvk))
+                conn.commit(); st.success("✅ Išsaugojau.")
+            except Exception as e:
+                st.error(f"❌ Klaida: {e}")
     st.dataframe(pd.read_sql_query("SELECT * FROM vairuotojai", conn))
 
 # ─── KLIENTAI ────────────────────────────────────────────────────────────────
 elif modulis == "Klientai":
-    st.title("DISPO – Klientų valdymas")
+    st.title("DISPO – Klientai")
     with st.form("kl_form", clear_on_submit=True):
-        p = st.text_input("Įmonės pavadinimas", key="kl_pav")
-        vat = st.text_input("PVM numeris", key="kl_vat")
-        m, pc = st.columns(2)
-        miest = m.text_input("Miestas", key="kl_m")
-        pd = pc.text_input("Pašto kodas", key="kl_pc")
-        kont = st.text_input("Kontaktai (v/p, el, tel)", key="kl_k")
-        skl = st.text_input("Sąskaitų kontaktas (v/p, el, tel)", key="kl_skl")
-        cof = st.number_input("COFACE limitas", 0.0, key="kl_cof")
-        atsisk = st.selectbox("Atsiskaitymo būdas", ["originalūs dokumentai","platforma","skanuoti dokumentai"], key="kl_atsb")
-        term = st.text_input("Atsiskaitymo terminas", key="kl_term")
-        submit = st.form_submit_button("💾 Išsaugoti klientą", key="kl_submit")
-    if submit and p and miest and pd:
-        # unikalumas pagal pavadinimą+miestą+pc
-        exists = c.execute("""
-            SELECT 1 FROM klientai WHERE pavadinimas=? AND miestas=? AND regionas=?
-        """, (p, miest, pd)).fetchone()
-        if exists:
-            st.error("❌ Toks klientas jau egzistuoja.")
+        iv = st.text_input("Įmonės pavadinimas"); kt = st.text_input("Kontaktai")
+        sl = st.text_input("Šalis"); ms = st.text_input("Miestas")
+        rg = st.text_input("Regionas"); pv = st.text_input("PVM numeris")
+        sb = st.form_submit_button("💾 Išsaugoti")
+    if sb:
+        if not iv: st.warning("⚠️ Pavadinimas būtinas.")
         else:
             try:
                 c.execute("""
-                    INSERT INTO klientai
-                    (pavadinimas,kontaktai,salis,miestas,regionas,vat_numeris)
-                    VALUES (?,?,?,?,?,?)
-                """, (p,kont,"",miest,pd,vat))
-                conn.commit()
-                st.success("✅ Klientas įrašytas.")
+                    INSERT INTO klientai (
+                        pavadinimas,kontaktai,salis,miestas,regionas,vat_numeris
+                    ) VALUES(?,?,?,?,?,?)
+                """, (iv,kt,sl,ms,rg,pv))
+                conn.commit(); st.success("✅ Išsaugojau.")
             except Exception as e:
-                st.error(f"❌ {e}")
-
-    st.subheader("📋 Klientų sąrašas")
+                st.error(f"❌ Klaida: {e}")
     st.dataframe(pd.read_sql_query("SELECT * FROM klientai", conn))
 
 # ─── DARBUOTOJAI ─────────────────────────────────────────────────────────────
 elif modulis == "Darbuotojai":
-    st.title("DISPO – Darbuotojų valdymas")
-    with st.form("da_form", clear_on_submit=True):
-        v = st.text_input("Vardas", key="da_v")
-        p = st.text_input("Pavardė", key="da_p")
-        # pareigybės iš lookup
-        pr_list = [r[0] for r in c.execute("SELECT reiksme FROM lookup WHERE modulis='Darbuotojai' AND kategorija='pareigybe'").fetchall()]
-        pr = st.selectbox("Pareigybė", [""]+pr_list, key="da_pr") if pr_list else st.text_input("Pareigybė", key="da_pr_txt")
-        # grupės iš grupes
-        gr_list = [r[2] for r in c.execute("SELECT id,numeris,pavadinimas FROM grupes").fetchall()]
-        gr = st.selectbox("Grupė", [""]+gr_list, key="da_gr") if gr_list else st.text_input("Grupė", key="da_gr_txt")
-        email = st.text_input("El. paštas", key="da_em")
-        tel = st.text_input("Telefono numeris", key="da_tel")
-        submit = st.form_submit_button("💾 Išsaugoti darbuotoją", key="da_submit")
-    if submit and v and p:
-        try:
-            c.execute("""
-                INSERT INTO darbuotojai
-                (vardas,pavarde,pareigybe,el_pastas,telefonas,grupe)
-                VALUES (?,?,?,?,?,?)
-            """, (v,p,pr,email,tel,gr))
-            conn.commit()
-            st.success("✅ Darbuotojas įrašytas.")
-        except Exception as e:
-            st.error(f"❌ {e}")
+    st.title("DISPO – Darbuotojai")
+    # pareigybės iš lookup
+    p_list = [r[0] for r in c.execute(
+        "SELECT reiksme FROM lookup WHERE kategorija = ?", ("pareigybe",)
+    ).fetchall()]
+    # grupės iš grupes
+    g_list = [r[2] for r in c.execute("SELECT id,numeris,pavadinimas FROM grupes").fetchall()]
 
-    st.subheader("📋 Darbuotojų sąrašas")
+    with st.form("emp_form", clear_on_submit=True):
+        vd = st.text_input("Vardas"); pv = st.text_input("Pavardė")
+        if p_list: pg = st.selectbox("Pareigybė", p_list)
+        else: pg = st.text_input("Pareigybė")
+        if g_list: gr = st.selectbox("Grupė", g_list)
+        else: gr = st.text_input("Grupė")
+        em = st.text_input("El. paštas"); ph = st.text_input("Telefonas")
+        sb = st.form_submit_button("💾 Išsaugoti")
+    if sb:
+        if not vd or not pv: st.warning("⚠️ Vardas ir pavardė būtini.")
+        else:
+            try:
+                c.execute("""
+                    INSERT INTO darbuotojai (
+                        vardas,pavarde,pareigybe,el_pastas,telefonas,grupe
+                    ) VALUES(?,?,?,?,?,?)
+                """, (vd,pv,pg,em,ph,gr))
+                conn.commit(); st.success("✅ Išsaugojau.")
+            except Exception as e:
+                st.error(f"❌ Klaida: {e}")
     st.dataframe(pd.read_sql_query("SELECT * FROM darbuotojai", conn))
