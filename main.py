@@ -7,6 +7,37 @@ from datetime import date, time, timedelta
 conn = sqlite3.connect('dispo_new.db', check_same_thread=False)
 c = conn.cursor()
 
+# ─── MIGRACIJA: pridėti trūkstamus stulpelius klientai lentelei ────────────────
+def ensure_column(table, column, coltype):
+    cols = [r[1] for r in c.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in cols:
+        c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+
+# Jeigu lentelė klientai egzistuoja, pridedam reikiamus naujus stulpelius
+c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='klientai'")
+if c.fetchone():
+    migracijos = [
+        ("klientai", "pasto_kodas", "TEXT"),
+        # duomenys apie adresą prisitaikys: miestas, regionas jau turėtų būti
+        ("klientai", "contact1_vardas", "TEXT"),
+        ("klientai", "contact1_pavarde", "TEXT"),
+        ("klientai", "contact1_email", "TEXT"),
+        ("klientai", "contact1_telefonas", "TEXT"),
+        ("klientai", "contact2_vardas", "TEXT"),
+        ("klientai", "contact2_pavarde", "TEXT"),
+        ("klientai", "contact2_email", "TEXT"),
+        ("klientai", "contact2_telefonas", "TEXT"),
+        ("klientai", "coface_limitas", "REAL"),
+        ("klientai", "musu_limitas", "REAL"),
+        ("klientai", "likes_limitas", "REAL"),
+        ("klientai", "atsiskaitymo_budas", "TEXT"),
+        ("klientai", "atsiskaitymo_terminas", "TEXT"),
+        ("klientai", "atsiskaitymo_naudingumas", "REAL"),
+    ]
+    for tbl, col, typ in migracijos:
+        ensure_column(tbl, col, typ)
+    conn.commit()
+
 # ─── Universali lookup lentelė su moduliu ──────────────────────────────────────
 c.execute("""
 CREATE TABLE IF NOT EXISTS lookup (
@@ -19,7 +50,7 @@ CREATE TABLE IF NOT EXISTS lookup (
 """)
 conn.commit()
 
-# ─── Kitos lentelės ───────────────────────────────────────────────────────────
+# ─── Kitos lentelės (sukuriamos tik jeigu neegzistuoja) ────────────────────────
 table_ddls = {
     "kroviniai": """
         CREATE TABLE IF NOT EXISTS kroviniai (
@@ -137,6 +168,14 @@ moduliai = [
     "Darbuotojai", "Nustatymai"
 ]
 modulis = st.sidebar.radio("📂 Pasirink modulį", moduliai)
+
+# ─── Toliau – visos tavo modulių apdorojimo dalys be pakeitimų… ──────────────
+
+# (toliau kopijuok visą anksčiau atsiųstą „Kroviniai“, „Vilkikai“, „Priekabos“,
+# „Grupės“, „Vairuotojai“, „Klientai“, „Darbuotojai“, „Nustatymai“ kodą
+# – jis dabar veiks ir su senais, ir su naujai migravusiais DB stulpeliais)
+
+
 
 # ─── NUSTATYMAI: lookup valdymas pagal modulį ────────────────────────────────
 if modulis == "Nustatymai":
